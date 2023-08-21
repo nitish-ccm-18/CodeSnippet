@@ -1,0 +1,96 @@
+ // Type 1 -> Percentage Discount Coupon
+        if($promo_code_details['promo_code_type'] == 1){
+	    	$discount =  ($items_total *$promo_code_details['promo_code_amount'])/100;
+	    	$total_cart_value = $cart_total - $discount;
+
+	    	if($total_cart_value <= 0){
+            	$promo_code_details['promo_code_amount'] = $cart_total;
+            	$total_cart_value = 0;
+            }
+            $total_cart_value = $total_cart_value + $total_shipping + $websiteRushFee;
+            $total_cart_value = ceil($total_cart_value) <= 1 ? 1 : $total_cart_value;
+        }
+        // Type 2 -> Fixed Discount Coupon
+    	else if($promo_code_details['promo_code_type'] == 2)
+        {
+            $total_cart_value = $cart_total - $promo_code_details['promo_code_amount'];
+
+            if($total_cart_value <= 0){
+            	$promo_code_details['promo_code_amount'] = $cart_total;
+            	$total_cart_value = 0;
+            }
+            $total_cart_value = $total_cart_value + $total_shipping + $websiteRushFee;
+            $total_cart_value = ceil($total_cart_value) <= 1 ? 1 : $total_cart_value;
+            $discount = $promo_code_details['promo_code_amount'];
+        }
+        // Type 3 -> Shipping Discount Coupon Upto 100$
+        else if($promo_code_details['promo_code_type'] == 3) {
+            $discount = $total_shipping > 100 ? 100 : $total_shipping;
+            $total_shipping = $total_shipping > 100 ? $total_shipping - 100 : 0;
+            Session::put('total_shipping',$total_shipping);
+            
+            $total_cart_value = $cart_total + $total_shipping + $websiteRushFee;
+        }
+         // Type 4 -> Reduced Cost Per Ipad Discount
+        else if($promo_code_details['promo_code_type'] == 4) {
+            $discount =  $ipad_count * $promo_code_details['promo_code_amount'];
+            $total_cart_value = $cart_total - $discount;
+            $total_cart_value = $total_cart_value + $total_shipping + $websiteRushFee;
+        }
+        // Type 5 -> Hardware Coupon
+        else if($promo_code_details['promo_code_type'] == 5){
+        	foreach($final_cart as $cart){
+        		if(in_array($cart['type'], array('hardware','accessories'))){
+        			$h_discount =  ($cart['subtotal_without_promo'] *$promo_code_details['promo_code_amount'])/100;
+        			$discount +=  $h_discount;
+        		}
+        	}
+        	$total_cart_value = $cart_total + $total_shipping + $websiteRushFee - $discount;
+        }
+        // Type 6 -> Fixed Price Ship Discount
+        else if($promo_code_details['promo_code_type'] == 6){
+        	$discount = isset($total_shipping) ? $promo_code_details['promo_code_amount'] : 0;
+            $discount = $discount >= $total_shipping ? $total_shipping : $discount;
+        	$total_cart_value = $cart_total + $total_shipping + $websiteRushFee - $discount;
+        }
+        // Type 8 -> Rental Days Discount
+        else if($promo_code_details['promo_code_type'] == 8) {
+            $discounted_cart_total = 0;
+            $discounted_final_cart = array();
+            
+            $daysDiffrence = $all_sess['day_diff'] > $promo_code_details['promo_code_amount']  
+            ? $all_sess['day_diff'] - $promo_code_details['promo_code_amount']
+            : $all_sess['day_diff'];
+
+            $rentalDays = $daysDiffrence;
+            // if rental_days and days_diffrence are same means there is no need of rental days calculation
+            if($rentalDays > $promo_code_details['promo_code_amount']) {
+                foreach($final_cart as $cart) {
+                    if($cart['type'] == "hardware" || $cart['type'] == 2) {
+                        $data = ProductPricing::where('product_id',$cart['id'])
+                                ->where("min_quantity", "<=", $cart['qty'])
+                                ->where("max_quantity", ">=", $cart['qty'])
+                                ->where('min_days', '<', $rentalDays)
+                                ->where('max_days', '>', $rentalDays)
+                                ->where('vip', 'no')
+                                ->first();
+                        $data['price'] = str_replace("$", "", $data['price']);
+                        $discounted_cart_total += (floatval($data['price']) * $cart['qty']);
+                    }
+                }
+            }
+            $shipInsurance_name = Product::find($all_sess['ship_insurance'])->name;
+            $hardwares = array_filter($final_cart, function($p) { return ($p['type'] == "hardware" || $p['type'] == 2 );});
+            $hardware_total = array_sum(array_column($hardwares, 'subtotal'));
+            $ship_insurance_price = $hardware_total * env('SHIP_INSURANCE_PERCENTAGE_STANDARD') / 100;
+           
+            $discount = $discounted_cart_total < $cart_total ? $cart_total - $discounted_cart_total : $cart_total;
+            $total_cart_value = $cart_total + $total_shipping + $websiteRushFee - $discount;
+        }
+        // Type 9 -> "REMOVE_SHIPPING"
+        else if($promo_code_details['promo_code_type'] == 9) {
+            $discount =  $total_shipping;
+            $total_cart_value = $cart_total + $websiteRushFee;
+            $total_shipping = 0;
+            Session::put('total_shipping',$total_shipping);
+        }

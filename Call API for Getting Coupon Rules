@@ -1,0 +1,21 @@
+ public static function couponRulesByCouponId($couponId) {
+        $siteId = 7;
+        $couponRules = array();
+        $client = new Client();
+
+        $response = $client->request('POST', env('IMS_URL').'api/coupon-rules', [
+            'query' => [
+                'API_KEY' => env('INVENTORY_API_KEY'),
+                'API_PREFIX' => env('API_PREFIX'),
+                'coupon_id' => $couponId
+            ]
+        ]);
+        
+        if($response) {
+            $response_body = json_decode($response->getBody(), true);
+            if($response_body['code'] == 200) {
+                $couponRules = $response_body['couponRules'];
+            }
+        }
+        return $couponRules;
+    }

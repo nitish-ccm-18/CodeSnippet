@@ -1,0 +1,30 @@
+    // get all coupon rules of given promocode
+	public function getPromocodeRulesById(Request $request) {
+		$inputs = $request->only('API_KEY','API_PREFIX','coupon_id');
+		$rules = [
+			'API_KEY' => 'required|match_key:'. $request->input('API_KEY'),
+			'API_PREFIX' => 'required:'. $request->input('API_PREFIX'),
+			'coupon_id' => 'required:'. $request->input('coupon_id'),
+		];
+		$message = [
+			'API_KEY.required' => 'Please provide a valid API KEY',
+		];
+
+		$validator = Validator::make($inputs, $rules, $message);
+		if ($validator->fails()) {
+			throw new HttpResponseException(response()->json(['status_code' => 422, 'msg' => $validator->errors()], 422));
+        }
+	
+		$siteID = Site::getSiteId($request->API_PREFIX);
+		$couponId = $request->coupon_id;
+		$promoCodeRules = PromoCodeRule::getPromocodeRulesById($siteID->id, $couponId);
+
+		if (count($promoCodeRules) > 0) {
+			return response()->json(['code' => 200, 'success' => 1, 'couponRules' => $promoCodeRules],200);
+		} else {
+			return response()->json(['code' => 404, 'msg' => 'Nothing found, please check if valid parameters are passed for the request items.'], 404);
+		}
+	}
+
+
+    $router->post('coupon-rules', 'APIController@getPromocodeRulesById'); // Get Coupon Rule By id

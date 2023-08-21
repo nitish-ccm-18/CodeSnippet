@@ -1,0 +1,58 @@
+ // Create Token
+        $curl = curl_init();
+        curl_setopt_array($curl, [
+            CURLOPT_URL => env('UPS_URL') . "/security/v1/oauth/token",
+            CURLOPT_CUSTOMREQUEST => "POST",
+            CURLOPT_POSTFIELDS => "grant_type=client_credentials",
+            CURLOPT_HTTPHEADER => [
+                "Content-Type: application/x-www-form-urlencoded",
+                "x-merchant-id: ".env('UPS_CLIENT_ID'),
+                "Authorization: Basic " . base64_encode(env('UPS_CLIENT_ID').":".env('UPS_CLIENT_SECRET'))
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+        ]);
+
+        $response = curl_exec($curl);
+        $error = curl_error($curl);
+        $accessToken = '';
+        if(!$error) {
+            $result = json_decode($response,true);
+            $accessToken =  isset($result['access_token']) ? $result['access_token'] : '';
+        }
+
+        curl_close($curl);
+        
+        // Validate Address
+        $requestOption = "1";
+        $version = "v1";
+        $result = [];
+        $curl = curl_init();
+        $payload = json_encode(array(
+               'XAVRequest'=>array(
+                   'AddressKeyFormat'=>array(
+                       'ConsigneeName'=>$request->name,
+                       'BuildingName'=>$request->aptSuite,
+                       'AddressLine'=>$request->address,
+                       'PoliticalDivision2'=>$request->city,
+                       'PoliticalDivision1'=>$request->state,
+                       'PostcodePrimaryLow'=>$request->zip,
+                       'CountryCode'=>'US'
+                   )
+               )
+           )
+       );
+
+       curl_setopt_array($curl, [
+           CURLOPT_POSTFIELDS => $payload,
+           CURLOPT_URL => env('UPS_URL') . '/api/addressvalidation/'. $version . '/' . $requestOption,
+           CURLOPT_RETURNTRANSFER => true,
+           CURLOPT_CUSTOMREQUEST => "POST",
+           CURLOPT_HTTPHEADER => [
+             "Authorization: Bearer " . $accessToken,
+             "Content-Type: application/json"
+           ],
+       ]);
+
+       $upsResponse = curl_exec($curl);
+        curl_close($curl);
+        return $upsResponse;
